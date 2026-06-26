@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ar" dir="ltr" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP Smart Farming - Édition L-Walid</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#ecfdf5', 100: '#d1fae5', 500: '#10b981', 600: '#059669', 800: '#065f46', 900: '#022c22' },
+                        melon: '#facc15'
+                    },
+                    fontFamily: { 'sans': ['Tajawal', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-size: 1.15rem; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .dark .glass-panel { background: rgba(30, 41, 59, 0.95); }
+        .blink-danger { animation: blink 1.2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        progress { border-radius: 999px; height: 12px; }
+        progress::-webkit-progress-bar { background-color: #e2e8f0; border-radius: 999px; }
+        .dark progress::-webkit-progress-bar { background-color: #334155; }
+        progress::-webkit-progress-value { background-color: #10b981; border-radius: 999px; }
+        progress.danger::-webkit-progress-value { background-color: #ef4444; }
+        progress.warn::-webkit-progress-value { background-color: #f59e0b; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 pb-24 text-left">
+
+    <!-- NAVBAR -->
+    <nav class="sticky top-0 z-40 glass-panel border-b border-slate-200 dark:border-slate-700 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-brand-600 text-white rounded-xl flex items-center justify-center text-2xl shadow-md">
+                    <i class="fas fa-satellite-dish"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-brand-900 dark:text-white">AgriSmart ERP</h1>
+                    <p class="text-sm text-brand-600 dark:text-brand-400 font-bold">Smart Farming V2.0</p>
+                </div>
+            </div>
+            <button id="themeToggle" class="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors">
+                <i class="fas fa-moon dark:hidden"></i>
+                <i class="fas fa-sun hidden dark:block text-melon"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MILDIOU PREDICTIVE ALERT BANNER (Hidden by default) -->
+    <div id="mildiou-alert" class="hidden bg-orange-500 text-white p-4 text-center font-black text-xl shadow-lg border-b-4 border-orange-700 blink-danger sticky top-[72px] z-30">
+        <i class="fas fa-biohazard ml-2 text-2xl"></i> 
+        ⚠️ KHATAR (DANGER) : Prévision de Mildiou/Oïdium f l-eyyam jaya (Rtouba > 80%). Wjed d-dwa (Pilarsys/Super-Alu)!
+    </div>
+
+    <div class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6" id="dashboard-content">
+
+        <!-- LEFT COLUMN: MÉTÉO & STOCKS -->
+        <div class="lg:col-span-4 space-y-6">
+            
+            <!-- ADVANCED WEATHER MODULE (OPEN-METEO API) -->
+            <div class="bg-gradient-to-br from-blue-500 to-indigo-700 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-40 h-40 bg-white opacity-10 rounded-full translate-x-10 -translate-y-10"></div>
+                
+                <div class="flex items-center justify-between mb-2 relative z-10">
+                    <h2 class="text-xl font-bold"><i class="fas fa-cloud-sun ml-2"></i> Météo Agronomique</h2>
+                    <span class="text-xs font-bold px-2 py-1 bg-white/20 rounded-lg" id="meteo-status">Chargement...</span>
+                </div>
+                <p class="text-sm text-blue-100 mb-6 font-bold relative z-10"><i class="fas fa-map-marker-alt ml-1"></i> Sidi Abderrazak (Ferme L-Walid)</p>
+                
+                <!-- Today's Hero Weather -->
+                <div id="meteo-today-hero" class="text-center mb-6 relative z-10 hidden">
+                    <div class="flex justify-center items-center gap-4">
+                        <i class="fas fa-sun text-6xl text-yellow-300"></i>
+                        <div class="text-6xl font-black" id="hero-temp">--°</div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mt-6 border-t border-white/20 pt-4">
+                        <div>
+                            <i class="fas fa-wind text-blue-200 text-xl mb-1"></i>
+                            <div class="text-xs text-blue-100">Vent</div>
+                            <div class="font-bold text-lg" id="hero-wind">--</div>
+                        </div>
+                        <div class="border-x border-white/20 px-2">
+                            <i class="fas fa-droplet text-blue-200 text-xl mb-1"></i>
+                            <div class="text-xs text-blue-100">Humidité</div>
+                            <div class="font-bold text-lg" id="hero-hum">--</div>
+                        </div>
+                        <div>
+                            <i class="fas fa-cloud-rain text-blue-200 text-xl mb-1"></i>
+                            <div class="text-xs text-blue-100">Pluie (mm)</div>
+                            <div class="font-bold text-lg" id="hero-rain">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7 Days Forecast Carousel -->
+                <h3 class="text-sm font-bold text-blue-200 mb-3 border-t border-white/20 pt-4 relative z-10">Prévisions 7 Jours (ET0 & Climat)</h3>
+                <div class="flex gap-3 overflow-x-auto scrollbar-hide pb-2 relative z-10" id="meteo-7days">
+                    <!-- JS injects 7 days cards here -->
+                </div>
+            </div>
+
+            <!-- STOCK MANAGEMENT REMOVED IN V3.0 -->
+
+        </div>
+
+        <!-- RIGHT COLUMN: ENGINE & TIMELINE -->
+        <div class="lg:col-span-8 space-y-6">
+            
+            <!-- AGRONOMIC ENGINE CALCULATOR -->
+            <div class="bg-brand-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                <div class="absolute bottom-0 right-0 w-64 h-64 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
+                <h2 class="text-2xl font-bold text-melon mb-6 relative z-10"><i class="fas fa-calculator ml-2"></i> Moteur Agronomique (Calculs)</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                    <div>
+                        <label class="block text-brand-100 text-sm font-bold mb-2">L-Missa7a (Surface en m²)</label>
+                        <input type="number" id="calc-surface" value="5000" class="w-full bg-brand-800 border-2 border-brand-600 text-white text-xl font-bold rounded-xl p-4 focus:outline-none focus:border-melon transition-colors text-left" dir="ltr" oninput="updateEngine()">
+                    </div>
+                    <div>
+                        <label class="block text-brand-100 text-sm font-bold mb-2">Date de début</label>
+                        <input type="date" id="calc-date" class="w-full bg-brand-800 border-2 border-brand-600 text-white text-xl font-bold rounded-xl p-4 focus:outline-none focus:border-melon transition-colors text-left" dir="ltr" onchange="updateEngine()">
+                    </div>
+                    <div>
+                        <label class="block text-brand-100 text-sm font-bold mb-2">Date de récolte (L-Jni)</label>
+                        <input type="date" id="calc-harvest" class="w-full bg-brand-800 border-2 border-brand-600 text-white text-xl font-bold rounded-xl p-4 focus:outline-none focus:border-melon transition-colors text-left" dir="ltr" onchange="updateEngine()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- GLOBALGAP TIMELINE -->
+            <div class="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 relative z-10">
+                <div class="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
+                    <h2 class="text-2xl font-bold text-slate-800 dark:text-white"><i class="fas fa-route text-brand-500 ml-2"></i> Programme (Timeline)</h2>
+                    <button onclick="exportPDF()" class="bg-slate-800 dark:bg-slate-700 text-white px-4 py-2 rounded-xl font-bold hover:bg-slate-900 transition-colors text-sm shadow-md flex items-center gap-2">
+                        <i class="fas fa-file-pdf"></i> Export GlobalGAP
+                    </button>
+                </div>
+
+                <div class="space-y-6" id="timeline-container">
+                    <!-- TIMELINE TASKS GENERATED BY JS -->
+                </div>
+            </div>
+
+            <!-- RESET BUTTON -->
+            <div class="mt-8 pt-4 border-t-2 border-slate-200 dark:border-slate-700 text-center">
+                <button onclick="resetApp()" class="px-8 py-4 bg-red-50 text-red-600 dark:bg-slate-800 dark:text-red-400 rounded-2xl font-bold hover:bg-red-100 dark:hover:bg-slate-700 transition-colors shadow-sm text-xl border-2 border-red-200 dark:border-red-900/50 w-full md:w-auto">
+                    <i class="fas fa-sync-alt ml-2"></i> 🔄 Msa7 Kolchi (Recommencer)
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODALS (ALERTS & SECURITY) -->
+    <div id="modal-overlay" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        
+        <!-- CALCIUM INCOMPATIBILITY MODAL -->
+        <div id="modal-calcium" class="bg-white dark:bg-slate-800 rounded-3xl max-w-lg w-full p-8 shadow-2xl hidden transform transition-all scale-95 opacity-0">
+            <div class="text-center mb-6">
+                <div class="w-24 h-24 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-5xl mx-auto mb-4 border-4 border-red-200 blink-danger">
+                    <i class="fas fa-skull-crossbones"></i>
+                </div>
+                <h3 class="text-3xl font-black text-slate-900 dark:text-white mb-2">DANGER - MAMENOU3 L-KHALAT</h3>
+                <p class="text-slate-600 dark:text-slate-400 text-lg">Nitrate de Calcium m3a Potasse/Magnésie f nfs l-barmil kaydir mouchkil (Ki-t7jer). Wach ghsalti l-barmil mzyan?</p>
+            </div>
+
+            <div class="flex gap-4">
+                <button onclick="closeModal('modal-calcium')" class="flex-1 py-4 bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-white rounded-xl font-bold text-lg hover:bg-slate-300 transition-colors">Annuler (Lghi)</button>
+                <button onclick="validateCalcium()" class="flex-1 py-4 bg-red-600 text-white rounded-xl font-bold text-lg hover:bg-red-700 transition-colors shadow-lg shadow-red-500/30">Ah, ghsalt l-barmil mzyan (Valider)</button>
+            </div>
+        </div>
+
+        <!-- RECOLTE QR CODE MODAL -->
+        <div id="modal-qr" class="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-8 shadow-2xl hidden transform transition-all scale-95 opacity-0 text-center">
+            <h3 class="text-3xl font-black text-brand-600 dark:text-brand-400 mb-2">Récolte Validée !</h3>
+            <p class="text-slate-600 dark:text-slate-400 mb-6 font-bold">Traçabilité GlobalGAP N-Nabta</p>
+            <div class="bg-white p-4 rounded-2xl inline-block shadow-inner border border-slate-200 mb-6">
+                <div id="qrcode"></div>
+            </div>
+            <p class="text-sm text-slate-500 mb-6">Had l-code fih t-tarikh dyal d-dwa w l-engrais kaml. Tqder tlesqo f l-caisse.</p>
+            <button onclick="closeModal('modal-qr')" class="w-full py-4 bg-slate-800 text-white rounded-xl font-bold text-lg hover:bg-slate-900 transition-colors">Tsakkr (Fermer)</button>
+        </div>
+
+    </div>
+
+<script>
+    // --- ERROR CATCHER ---
+    window.addEventListener('error', function(e) {
+        console.error("Global Error:", e);
+    });
+
+    let defaultHarvest = new Date();
+    defaultHarvest.setDate(defaultHarvest.getDate() + 90);
+
+    let state = {
+        surface: 5000,
+        startDate: new Date().toISOString().split('T')[0],
+        harvestDate: defaultHarvest.toISOString().split('T')[0],
+        completedTasks: []
+    };
+    let meteoData = null; // Holds the real API data
+
+    // --- INIT ---
+    // Check Dark Mode
+    const themeToggle = document.getElementById('themeToggle');
+    if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+    }
+    themeToggle.addEventListener('click', () => {
+        document.documentElement.classList.toggle('dark');
+        localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    });
+
+    // Load Local Storage safely
+    try {
+        const saved = localStorage.getItem('erp_smart');
+        if(saved) {
+            Object.assign(state, JSON.parse(saved));
+        }
+    } catch(e) { console.warn("LocalStorage issue", e); }
+    
+    document.getElementById('calc-surface').value = state.surface;
+    document.getElementById('calc-date').value = state.startDate;
+    document.getElementById('calc-harvest').value = state.harvestDate;
+
+    // --- MÉTÉO AGRONOMIQUE (OPEN-METEO) ---
+    const METEO_URL = "https://api.open-meteo.com/v1/forecast?latitude=33.917639&longitude=-6.191889&current=temperature_2m,relative_humidity_2m,precipitation,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,et0_fao_evapotranspiration,wind_speed_10m_max&hourly=relative_humidity_2m,temperature_2m,wind_speed_10m&timezone=Africa%2FCasablanca";
+
+    async function fetchMeteo() {
+        try {
+            document.getElementById('meteo-status').textContent = "Mise à jour...";
+            let res = await fetch(METEO_URL, { cache: "no-store" });
+            let data = await res.json();
+            
+            // Calculate daily max humidity from hourly data
+            data.daily.relative_humidity_max = [];
+            for (let i = 0; i < 7; i++) {
+                let maxHum = 0;
+                for (let h = 0; h < 24; h++) {
+                    let hum = data.hourly.relative_humidity_2m[i*24 + h];
+                    if (hum > maxHum) maxHum = hum;
+                }
+                data.daily.relative_humidity_max.push(maxHum);
+            }
+            
+            localStorage.setItem('erp_meteo_v3', JSON.stringify({ timestamp: Date.now(), data: data }));
+            document.getElementById('meteo-status').textContent = "Live 🟢";
+            return data;
+        } catch(e) {
+            console.error("Meteo Offline Error:", e);
+            let cached = localStorage.getItem('erp_meteo_v3');
+            if (cached) {
+                let parsed = JSON.parse(cached);
+                let dateMaj = new Date(parsed.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute:'2-digit'});
+                document.getElementById('meteo-status').textContent = `Hors-Ligne 🔴 (Maj: ${dateMaj})`;
+                return parsed.data;
+            }
+            document.getElementById('meteo-status').textContent = "Hors-Ligne 🔴";
+            return null;
+        }
+    }
+
+    function renderMeteoUI() {
+        if (!meteoData || !meteoData.daily) return;
+        
+        const d = meteoData.daily;
+        const c = meteoData.current;
+        // Today Hero (Live)
+        document.getElementById('hero-temp').textContent = Math.round(c.temperature_2m) + '°';
+        document.getElementById('hero-wind').textContent = Math.round(c.wind_speed_10m) + ' km/h';
+        document.getElementById('hero-hum').textContent = Math.round(c.relative_humidity_2m) + '%';
+        document.getElementById('hero-rain').textContent = c.precipitation + ' mm';
+        document.getElementById('meteo-today-hero').classList.remove('hidden');
+
+        // 7 Days
+        const container = document.getElementById('meteo-7days');
+        container.innerHTML = '';
+        for(let i=0; i<7; i++) {
+            let dateObj = new Date(d.time[i]);
+            let dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short' });
+            container.innerHTML += `
+                <div class="bg-white/10 rounded-xl p-3 min-w-[90px] text-center border border-white/10 shrink-0">
+                    <div class="text-xs text-blue-200 font-bold uppercase mb-1">${dayName}</div>
+                    <div class="text-xl font-black mb-1">${Math.round(d.temperature_2m_max[i])}°</div>
+                    <div class="text-xs text-blue-100 flex items-center justify-center gap-1"><i class="fas fa-droplet text-blue-300"></i> ${d.precipitation_sum[i]}m</div>
+                    <div class="text-[10px] text-yellow-300 mt-1 font-bold">ET0: ${d.et0_fao_evapotranspiration[i]}</div>
+                </div>
+            `;
+        }
+        
+        // Mildiou Algorithm Checker
+        checkMildiouRisk();
+    }
+
+    function checkMildiouRisk() {
+        if (!meteoData) return;
+        let riskDays = 0;
+        const d = meteoData.daily;
+        for (let i = 0; i < 7; i++) {
+            if (d.relative_humidity_max[i] > 80 && d.temperature_2m_max[i] < 28 && d.temperature_2m_min[i] > 12) {
+                riskDays++;
+                if (riskDays >= 2) {
+                    document.getElementById('mildiou-alert').classList.remove('hidden');
+                    return;
+                }
+            } else {
+                riskDays = 0;
+            }
+        }
+        document.getElementById('mildiou-alert').classList.add('hidden');
+    }
+
+    // --- AGRONOMIC ENGINE (CALCULS EXACTS) ---
+    function getDoses() {
+        const s = state.surface;
+        const volEau = (s / 1000) * 80; // 80L per 1000m2
+        
+        let amineMl = (volEau * 250) / 100;
+        let amineDisplay = amineMl >= 1000 ? (amineMl/1000).toFixed(1) + ' L' : amineMl.toFixed(0) + ' ml';
+        let amineValForStock = amineMl >= 1000 ? (amineMl/1000) : (amineMl/1000); 
+
+        const ratio = s / 5000;
+        return {
+            eau: volEau,
+            acetapro: (volEau * 8.5) / 100,
+            promite: (s / 10000) * 400,
+            pilarsys: (volEau * 25) / 100,
+            amineStr: amineDisplay,
+            amineStock: amineValForStock,
+            potasse: 4 * ratio,
+            magnesie: 2 * ratio,
+            humic: 2.5 * ratio,
+            calcium: 6 * ratio
+        };
+    }
+
+    function updateEngine() {
+        let newSurface = parseFloat(document.getElementById('calc-surface').value) || 0;
+        let newDate = document.getElementById('calc-date').value;
+        let newHarvest = document.getElementById('calc-harvest').value;
+
+        let d1 = newDate ? new Date(newDate) : new Date(state.startDate);
+        let d2 = newHarvest ? new Date(newHarvest) : new Date(state.harvestDate);
+
+        if (d2 <= d1) {
+            alert('Alerte : Le jour de récolte doit être APRÈS la date de début !');
+            // Revert UI fields to previous valid state
+            document.getElementById('calc-surface').value = state.surface;
+            document.getElementById('calc-date').value = state.startDate;
+            document.getElementById('calc-harvest').value = state.harvestDate;
+            return;
+        }
+
+        state.surface = newSurface;
+        if(newDate) state.startDate = newDate;
+        if(newHarvest) state.harvestDate = newHarvest;
+        
+        saveState();
+        renderTimeline();
+    }
+
+
+
+    // --- TIMELINE GENERATOR & LOGIC BLOCKING ---
+    const imgTag = (filename) => `<img src="Produits/${filename}" class="rounded-xl shadow-md border-2 border-slate-200 dark:border-slate-600 cursor-pointer hover:opacity-80 transition-opacity w-full max-w-[120px] sm:max-w-[96px] mt-3 sm:mt-0" style="max-width: 100%; height: auto; display: block;" onclick="window.open(this.src, '_blank')">`;
+
+    const TIMELINE_DATA = [
+        { id: 't1', offset: 0, title: 'Jour 1 : Nhar 1 (L-Makla f j-Jder + Dwa d l-7acharat)', type: 'foliaire' },
+        { id: 't2', offset: 1, title: 'Jour 2 : Nhar 2 (Dwa d L-Amrad w T-T9wiya)', type: 'foliaire' },
+        { id: 't3', offset: 2, title: 'Jour 3 : Nhar 3 (L-Calcium bo7do - Khatar L-Khalat!)', type: 'calcium' },
+        { id: 't4', offset: 85, title: 'J-5 : STOP IRRIGATION (Qte3 L-Ma)', type: 'stop_water' },
+        { id: 't5', offset: 90, title: 'J-0 : RÉCOLTE (L-Jni)', type: 'harvest' }
+    ];
+
+    function renderTimeline() {
+        const container = document.getElementById('timeline-container');
+        container.innerHTML = '';
+        const doses = getDoses();
+        
+        let startObj = new Date(state.startDate);
+        if(isNaN(startObj.getTime())) startObj = new Date(); // fallback
+
+        let dreActive = state.completedTasks.includes('t1') || state.completedTasks.includes('t2');
+
+        TIMELINE_DATA.forEach((task, index) => {
+            let taskDate = new Date(startObj);
+            if (task.id === 't4') {
+                taskDate = new Date(state.harvestDate);
+                taskDate.setDate(taskDate.getDate() - 5);
+            } else if (task.id === 't5') {
+                taskDate = new Date(state.harvestDate);
+            } else {
+                taskDate.setDate(taskDate.getDate() + task.offset);
+            }
+            let dateStr = taskDate.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+            let isoDateStr = taskDate.toISOString().split('T')[0];
+            
+            let isDone = state.completedTasks.includes(task.id);
+            let prevDone = index === 0 ? true : state.completedTasks.includes(TIMELINE_DATA[index - 1].id);
+            let isBlockedIoT = false;
+            let iotMsg = '';
+            let rainWarningHtml = '';
+            let optimalWeatherBadge = '';
+
+            // Engine Blocking Logic (Weather)
+            if (meteoData && meteoData.daily && meteoData.hourly) {
+                // Stress hydrique check (Daily)
+                let dIndex = meteoData.daily.time.indexOf(isoDateStr);
+                if (dIndex !== -1) {
+                    let wRain = meteoData.daily.precipitation_sum[dIndex];
+                    if (task.type === 'stop_water' && wRain > 0) {
+                        rainWarningHtml = `<div class="mt-4 p-3 bg-blue-100 text-blue-800 border-l-4 border-blue-500 font-bold rounded shadow-sm">🌧️ Alerte Algorithme : Météo prévue avec ${wRain}mm de pluie ce jour là. Adaptez l'arrêt d'irrigation !</div>`;
+                    }
+                }
+
+                // Foliar check at 18:00 (Hourly)
+                let targetHourStr = isoDateStr + "T18:00";
+                let hIndex = meteoData.hourly.time.indexOf(targetHourStr);
+                if (hIndex !== -1 && task.type === 'foliaire' && !isDone) {
+                    let wWindHourly = meteoData.hourly.wind_speed_10m[hIndex];
+                    let wTempHourly = meteoData.hourly.temperature_2m[hIndex];
+                    
+                    if (wWindHourly > 20 || wTempHourly > 28) {
+                        isBlockedIoT = true;
+                        if (wTempHourly > 28) iotMsg += `Chaleur extrême à 18h30 (${wTempHourly}°C). `;
+                        if (wWindHourly > 20) iotMsg += `Vent fort à 18h30 (${wWindHourly} km/h). `;
+                    } else if (wWindHourly >= 15 && wWindHourly <= 20) {
+                        optimalWeatherBadge = `<div class="mt-3 mb-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 text-sm font-bold rounded-lg border border-yellow-200 dark:border-yellow-800"><i class="fas fa-exclamation-triangle ml-1"></i> ⚠️ Vent modéré (${wWindHourly} km/h) : Utilisez les buses anti-dérive. (Temp: ${wTempHourly}°C)</div>`;
+                    } else {
+                        optimalWeatherBadge = `<div class="mt-3 mb-2 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-sm font-bold rounded-lg border border-green-200 dark:border-green-800"><i class="fas fa-check-circle ml-1"></i> Météo prévue à 18h30 : ${wTempHourly}°C, Vent : ${wWindHourly} km/h -> Conditions Optimales ✔</div>`;
+                    }
+                }
+            }
+
+            // Doses HTML V3.1 - Responsive Mobile First
+            let doseHtml = '';
+            if(task.id === 't1') {
+                doseHtml = `
+                <div class="space-y-4 text-slate-800 dark:text-slate-200 text-lg mt-4">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800 shadow-inner">
+                        <h4 class="font-bold text-blue-800 dark:text-blue-300 mb-3 border-b border-blue-200 dark:border-blue-800 pb-2">🕒 16:00 - S9a f L-Barmil (Fertigation) :</h4>
+                        <ul class="flex flex-col gap-6">
+                            <li><span class="font-bold text-slate-900 dark:text-white">Kifach T-khllet :</span> 3mer l-barmil b 60 7tal 80 Itro dyal l-ma dafi.</li>
+                            <li class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+                                <span class="font-bold text-slate-900 dark:text-white">Chno T-lo7 :</span> 
+                                <span>Lo7 ${doses.potasse.toFixed(1)} kg dyal Sulfate de Potasse</span>
+                                ${imgTag('IMG_0548.JPEG')}
+                                <span>+ ${doses.magnesie.toFixed(1)} kg dyal Sulfate de Magnésie</span>
+                                ${imgTag('IMG_0546.JPEG')}
+                            </li>
+                            <li class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+                                <span class="font-bold text-slate-900 dark:text-white">T-t7rak :</span> 
+                                <span>7erek mzyan b chi 3sa 7ta y-doub dakchi kamel. 3ad zid ${doses.humic.toFixed(1)} Litres dyal BEST Humic</span>
+                                ${imgTag('IMG_0549.JPEG')}
+                            </li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Kifach T-sqi :</span> Tle9 l-ma nqi f t-tyouwat 15 dqiqa <i class="fas fa-arrow-right text-brand-500 mx-1"></i> Tle9 l-barmil idouz <i class="fas fa-arrow-right text-brand-500 mx-1"></i> Mli isali, tle9 l-ma nqi 10 d9ayeq bach t-ghsel t-tyouwat w may-tbouchawch.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-xl border border-emerald-100 dark:border-emerald-800 shadow-inner">
+                        <h4 class="font-bold text-emerald-800 dark:text-emerald-300 mb-3 border-b border-emerald-200 dark:border-emerald-800 pb-2">🕒 18:30 - Rchan d L-wra9 (Foliaire) :</h4>
+                        <ul class="flex flex-col gap-6">
+                            <li><span class="font-bold text-slate-900 dark:text-white">L-Weqaya :</span> Lbes s-sbbat, l-gants w l-mask.</li>
+                            <li class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+                                <span class="font-bold text-slate-900 dark:text-white">Kifach T-khllet :</span> 
+                                <span>F ${doses.eau.toFixed(0)} L dyal l-ma, khllet ${doses.acetapro.toFixed(0)}g dyal Acetapro</span>
+                                ${imgTag('IMG_0543.JPEG')}
+                                <span>+ ${doses.promite.toFixed(0)}ml dyal Promite</span>
+                                ${imgTag('IMG_0541.JPEG')}
+                            </li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Kifach T-rch :</span> Rch l-melon kamel, rkez 3la l-te7t dyal l-wer9a fin kankhbba R'tila.</li>
+                        </ul>
+                    </div>
+                </div>`;
+            }
+            if(task.id === 't2') {
+                doseHtml = `
+                <div class="space-y-4 text-slate-800 dark:text-slate-200 text-lg mt-4">
+                    <div class="bg-emerald-50 dark:bg-emerald-900/20 p-5 rounded-xl border border-emerald-100 dark:border-emerald-800 shadow-inner">
+                        <h4 class="font-bold text-emerald-800 dark:text-emerald-300 mb-3 border-b border-emerald-200 dark:border-emerald-800 pb-2">🕒 18:30 - Rchan d L-wra9 (Foliaire) :</h4>
+                        <ul class="flex flex-col gap-6">
+                            <li class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+                                <span class="font-bold text-slate-900 dark:text-white">Kifach T-khllet :</span> 
+                                <span>F ${doses.eau.toFixed(0)} L dyal l-ma, khllet ${doses.pilarsys.toFixed(0)}ml dyal PILARSYS</span>
+                                ${imgTag('IMG_0557.JPEG')}
+                                <span>+ SUPER-ALU</span>
+                                ${imgTag('IMG_0551.JPEG')}
+                                <span>+ ${doses.amineStr} dyal BEST Amine</span>
+                                ${imgTag('IMG_0553.JPEG')}
+                            </li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Kifach T-rch :</span> Rch l-melon mn l-foq w l-te7t. Had d-dwa ghadi i-7mih mn Bobiyad w y-3tih J-jehd.</li>
+                        </ul>
+                    </div>
+                </div>`;
+            }
+            if(task.id === 't3') {
+                doseHtml = `
+                <div class="space-y-4 text-slate-800 dark:text-slate-200 text-lg mt-4">
+                    <div class="bg-blue-50 dark:bg-blue-900/20 p-5 rounded-xl border border-blue-100 dark:border-blue-800 shadow-inner">
+                        <h4 class="font-bold text-blue-800 dark:text-blue-300 mb-3 border-b border-blue-200 dark:border-blue-800 pb-2">🕒 Sba7 awla l-3chiya - S9a f L-Barmil :</h4>
+                        <ul class="flex flex-col gap-6">
+                            <li class="p-3 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 font-bold rounded shadow-sm"><span class="font-black text-red-600 dark:text-red-300">N-N9awa (Mohim bzaf) :</span> GHSEL L-BARMIL MZYAN b l-ma. Mamenou3 y-bqa fih atar dyal l-Sulfate d Nhar 1, sinon ghadi y-wlli gbs w y-teboucha l-goutte!</li>
+                            <li class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
+                                <span class="font-bold text-slate-900 dark:text-white">Kifach T-khllet :</span> 
+                                <span>3mer l-barmil b 60-80 L d l-ma nqi. Lo7 ${doses.calcium.toFixed(1)} kg dyal Nitrate de Calcium</span>
+                                ${imgTag('IMG_0547.JPEG')}
+                                <span>bo7dou.</span>
+                            </li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Kifach T-sqi :</span> Nfs tariqa d Nhar 1 (Ma nqi <i class="fas fa-arrow-right text-brand-500 mx-1"></i> Barmil <i class="fas fa-arrow-right text-brand-500 mx-1"></i> Ma nqi).</li>
+                        </ul>
+                    </div>
+                </div>`;
+            }
+            if(task.id === 't4') {
+                doseHtml = `
+                <div class="space-y-4 text-slate-800 dark:text-slate-200 text-lg leading-relaxed mt-4">
+                    <div class="bg-orange-50 dark:bg-orange-900/20 p-5 rounded-xl border border-orange-100 dark:border-orange-800 shadow-inner">
+                        <ul class="list-none space-y-4">
+                            <li><span class="font-bold text-slate-900 dark:text-white">L-Hadaf :</span> Bach l-melon y-wlli 7lou w s-sokar i-tla3 fih, khass n-nbta t-3tech.</li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Chno ddir :</span> Sdd l-vanes dyal l-ma f mara. Mamenou3 t-sqi nhaiyan f had 5 yyam l-kheraniya.</li>
+                        </ul>
+                    </div>
+                </div>`;
+            }
+            if(task.id === 't5') {
+                doseHtml = `
+                <div class="space-y-4 text-slate-800 dark:text-slate-200 text-lg leading-relaxed mt-4">
+                    <div class="bg-yellow-50 dark:bg-yellow-900/20 p-5 rounded-xl border border-yellow-100 dark:border-yellow-800 shadow-inner">
+                        <ul class="list-none space-y-4">
+                            <li><span class="font-bold text-slate-900 dark:text-white">Wach tab? :</span> Chouf l-Melona, khass l-loun y-wlli sfer nase7, w l-blassa l-te7taniya t-rtab chwiya.</li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Kifach T-qte3 :</span> Mamenou3 t-nter l-hba b yddik! Qte3 b s-sécateur w khlli 3 cm dyal n-nbata lass9a f l-melon bach may-khmejch.</li>
+                            <li><span class="font-bold text-slate-900 dark:text-white">Chmch :</span> Ghtti s-snadeq 3la chmch b zerba w sttefhom b chwiya bla khbet.</li>
+                        </ul>
+                    </div>
+                </div>`;
+            }
+
+            let actionBtn = '';
+            if (isDone) {
+                actionBtn = `<button class="w-full mt-6 py-4 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-xl font-bold cursor-default text-lg"><i class="fas fa-check-circle ml-2"></i> Khedma Salat</button>`;
+            } else if (!prevDone) {
+                actionBtn = `<button class="w-full mt-6 py-4 bg-slate-200 text-slate-500 dark:bg-slate-700/50 dark:text-slate-500 rounded-xl font-bold cursor-not-allowed border border-slate-300 dark:border-slate-600 text-lg"><i class="fas fa-lock ml-2"></i> Tsena tsali nhar li qbel (En attente)</button>`;
+            } else if (isBlockedIoT) {
+                actionBtn = `<button class="w-full mt-6 py-4 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-xl font-bold cursor-not-allowed border border-red-300 text-lg"><i class="fas fa-ban ml-2"></i> Bloqué Météo: ${iotMsg}</button>`;
+            } else {
+                actionBtn = `<button onclick="handleTaskClick('${task.id}')" class="w-full mt-6 py-4 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/30 active:scale-95 text-xl">Valider (J'ai fait la tâche)</button>`;
+            }
+
+            container.innerHTML += `
+                <div class="p-6 md:p-8 border-2 ${isDone ? 'border-green-500 bg-green-50 dark:bg-green-900/10 opacity-70' : 'border-brand-200 dark:border-brand-800 bg-white dark:bg-slate-800 shadow-xl'} rounded-3xl transition-all">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
+                        <h3 class="font-black text-2xl ${isDone ? 'text-green-700 dark:text-green-400' : 'text-brand-900 dark:text-brand-100'}">${task.title}</h3>
+                        <span class="text-sm md:text-base font-bold px-4 py-2 bg-brand-50 dark:bg-brand-900/40 rounded-xl shadow-sm border border-brand-200 dark:border-brand-700 text-brand-700 dark:text-brand-300 whitespace-nowrap"><i class="far fa-calendar-alt ml-2"></i> ${dateStr}</span>
+                    </div>
+                    ${optimalWeatherBadge}
+                    ${rainWarningHtml}
+                    ${doseHtml}
+                    ${actionBtn}
+                </div>
+            `;
+        });
+    }
+
+    // --- TASK HANDLING & SECURITY ---
+    let pendingTaskId = null;
+
+    function handleTaskClick(taskId) {
+        if (taskId === 't3') {
+            pendingTaskId = taskId;
+            document.getElementById('modal-calcium').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('modal-calcium').classList.remove('scale-95', 'opacity-0');
+            }, 10);
+            document.getElementById('modal-overlay').classList.remove('hidden');
+        } else if (taskId === 't5') {
+            completeTask(taskId);
+            showQRModal();
+        } else {
+            completeTask(taskId);
+        }
+    }
+
+    function validateCalcium() {
+        closeModal('modal-calcium');
+        completeTask(pendingTaskId);
+        pendingTaskId = null;
+    }
+
+    function completeTask(taskId) {
+        if(!state.completedTasks.includes(taskId)) {
+            state.completedTasks.push(taskId);
+            saveState();
+            renderTimeline();
+        }
+    }
+
+    function resetApp() {
+        if(confirm("Wach mtyeqen bghiti t-msa7 kolchi w tbda mn jdid?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    // --- MODALS & EXPORTS ---
+    function closeModal(id) {
+        const m = document.getElementById(id);
+        m.classList.add('scale-95', 'opacity-0');
+        setTimeout(() => {
+            m.classList.add('hidden');
+            document.getElementById('modal-overlay').classList.add('hidden');
+        }, 300);
+    }
+
+    function showQRModal() {
+        document.getElementById('modal-qr').classList.remove('hidden');
+        setTimeout(() => document.getElementById('modal-qr').classList.remove('scale-95', 'opacity-0'), 10);
+        document.getElementById('modal-overlay').classList.remove('hidden');
+        
+        document.getElementById('qrcode').innerHTML = '';
+        new QRCode(document.getElementById("qrcode"), {
+            text: "GlobalGAP Track - Melon Canari " + new Date().getFullYear() + " | Surface: " + state.surface + "m2",
+            width: 180, height: 180, colorDark : "#064e3b", colorLight : "#ffffff"
+        });
+    }
+
+    function exportPDF() {
+        const element = document.getElementById('dashboard-content');
+        const opt = {
+            margin:       1,
+            filename:     'Registre_GlobalGAP_Melon.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    }
+
+    function saveState() {
+        try { localStorage.setItem('erp_smart', JSON.stringify(state)); } catch(e){}
+    }
+
+    // --- BOOTSTRAP APP ---
+    async function initApp() {
+        renderTimeline(); // Render initial fast UI
+        meteoData = await fetchMeteo();
+        renderMeteoUI();
+        renderTimeline(); // Re-render with meteo blocking logic
+    }
+    
+    initApp();
+
+</script>
+</body>
+</html>
